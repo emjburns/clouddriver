@@ -23,8 +23,10 @@ import com.netflix.spinnaker.clouddriver.consul.config.ConsulConfig
 import com.netflix.spinnaker.clouddriver.consul.model.ConsulHealth
 import com.netflix.spinnaker.clouddriver.consul.model.ConsulNode
 import com.netflix.spinnaker.clouddriver.consul.model.ConsulService
+import groovy.util.logging.Slf4j
 import retrofit.RetrofitError
 
+@Slf4j
 class ConsulProviderUtils {
   static ConsulNode getHealths(ConsulConfig config, String agent) {
     def healths = []
@@ -34,11 +36,20 @@ class ConsulProviderUtils {
       healths = new ConsulAgent(config, agent).api.checks()?.collect { String name, CheckResult result ->
         return new ConsulHealth(result: result, source: result.checkID)
       } ?: []
+
+      log.info(">>>>")
+      log.info(healths.dump())
+
       services = new ConsulAgent(config, agent).api.services()?.collect { String name, ServiceResult result ->
         return new ConsulService(result)
       } ?: []
+
+      log.info(services.dump())
+
       running = true
     } catch (RetrofitError e) {
+      log.info(">>>>")
+      log.info(e.dump())
     }
     return new ConsulNode(healths: healths, running: running, services: services)
   }
