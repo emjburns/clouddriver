@@ -66,7 +66,7 @@ class ConsulConfig {
       ", agentEndpoint='" + agentEndpoint + '\'' +
       ", datacenters=" + datacenters +
       ", agentPort=" + agentPort +
-      '}';
+      '}'
   }
 }
 

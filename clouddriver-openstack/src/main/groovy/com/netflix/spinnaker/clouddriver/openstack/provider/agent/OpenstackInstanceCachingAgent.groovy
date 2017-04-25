@@ -17,7 +17,8 @@
 package com.netflix.spinnaker.clouddriver.openstack.provider.agent
 
 import com.fasterxml.jackson.databind.ObjectMapper
-import com.netflix.spinnaker.cats.agent.*
+import com.netflix.spinnaker.cats.agent.AgentDataType
+import com.netflix.spinnaker.cats.agent.CacheResult
 import com.netflix.spinnaker.cats.provider.ProviderCache
 import com.netflix.spinnaker.clouddriver.consul.model.ConsulNode
 import com.netflix.spinnaker.clouddriver.consul.provider.ConsulProviderUtils
@@ -26,11 +27,10 @@ import com.netflix.spinnaker.clouddriver.openstack.cache.Keys
 import com.netflix.spinnaker.clouddriver.openstack.model.OpenstackInstance
 import com.netflix.spinnaker.clouddriver.openstack.security.OpenstackNamedAccountCredentials
 import groovy.util.logging.Slf4j
-import org.openstack4j.model.compute.Server
 
-import static com.netflix.spinnaker.clouddriver.openstack.provider.OpenstackInfrastructureProvider.ATTRIBUTES
 import static com.netflix.spinnaker.cats.agent.AgentDataType.Authority.AUTHORITATIVE
 import static com.netflix.spinnaker.clouddriver.openstack.cache.Keys.Namespace.INSTANCES
+import static com.netflix.spinnaker.clouddriver.openstack.provider.OpenstackInfrastructureProvider.ATTRIBUTES
 
 @Slf4j
 class OpenstackInstanceCachingAgent extends AbstractOpenstackCachingAgent {
@@ -66,6 +66,10 @@ class OpenstackInstanceCachingAgent extends AbstractOpenstackCachingAgent {
 
       ConsulNode consulNode = account?.consulConfig?.enabled ?
         ConsulProviderUtils.getHealths(account.consulConfig, server.name) : null
+
+      log.info(">>>>>>>>")
+      log.info(consulNode.dump())
+      log.info(">>>>>>>>")
 
       Map<String, Object> instanceAttributes = objectMapper.convertValue(OpenstackInstance.from(server, consulNode, accountName, region), ATTRIBUTES)
 
