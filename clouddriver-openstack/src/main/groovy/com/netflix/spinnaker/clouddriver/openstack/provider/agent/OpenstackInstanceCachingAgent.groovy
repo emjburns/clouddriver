@@ -67,10 +67,6 @@ class OpenstackInstanceCachingAgent extends AbstractOpenstackCachingAgent {
       ConsulNode consulNode = account?.consulConfig?.enabled ?
         ConsulProviderUtils.getHealths(account.consulConfig, server.name) : null
 
-      log.info(">>>>>>>>")
-      log.info(consulNode.dump())
-      log.info(">>>>>>>>")
-
       Map<String, Object> instanceAttributes = objectMapper.convertValue(OpenstackInstance.from(server, consulNode, accountName, region), ATTRIBUTES)
 
       cacheResultBuilder.namespace(INSTANCES.ns).keep(instanceKey).with {

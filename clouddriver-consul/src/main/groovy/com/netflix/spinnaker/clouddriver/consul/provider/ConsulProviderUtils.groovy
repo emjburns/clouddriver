@@ -37,19 +37,13 @@ class ConsulProviderUtils {
         return new ConsulHealth(result: result, source: result.checkID)
       } ?: []
 
-      log.info(">>>>")
-      log.info(healths.dump())
-
       services = new ConsulAgent(config, agent).api.services()?.collect { String name, ServiceResult result ->
         return new ConsulService(result)
       } ?: []
 
-      log.info(services.dump())
 
       running = true
     } catch (RetrofitError e) {
-      log.info(">>>>")
-      log.info(e.dump())
     }
     return new ConsulNode(healths: healths, running: running, services: services)
   }
