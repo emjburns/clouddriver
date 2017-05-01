@@ -19,6 +19,8 @@ buildscript {
     springBootVersion = "1.2.8.RELEASE"
   }
   repositories {
+    maven { url "https://artifactory.veritas.com/artifactory/libs-release" }
+    jcenter { url "https://artifactory.veritas.com/artifactory/libs-release" }
     jcenter()
     maven { url "http://spinnaker.bintray.com/gradle" }
     maven { url "https://plugins.gradle.org/m2/" }
