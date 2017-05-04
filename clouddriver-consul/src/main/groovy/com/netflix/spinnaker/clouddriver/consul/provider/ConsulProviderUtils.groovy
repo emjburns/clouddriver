@@ -36,11 +36,13 @@ class ConsulProviderUtils {
       healths = new ConsulAgent(config, agent).api.checks()?.collect { String name, CheckResult result ->
         return new ConsulHealth(result: result, source: result.checkID)
       } ?: []
+      log.info(">>CONSUL>> consulHealth: $healths")
       services = new ConsulAgent(config, agent).api.services()?.collect { String name, ServiceResult result ->
         return new ConsulService(result)
       } ?: []
       running = true
     } catch (RetrofitError e) {
+      log.info(e.message)
       // Instance can't be connected to on hostname:port/v1/agent/checks
       log.debug(e.message)
     }

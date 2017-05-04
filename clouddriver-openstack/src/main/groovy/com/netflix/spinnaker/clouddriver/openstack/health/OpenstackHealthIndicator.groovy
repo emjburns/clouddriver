@@ -50,7 +50,8 @@ class OpenstackHealthIndicator implements HealthIndicator {
     new Health.Builder().up().build()
   }
 
-  @Scheduled(fixedDelay = 300000L)
+  @Scheduled(fixedDelay = 3600L)
+//  @Scheduled(fixedDelay = 300000L)
   void checkHealth() {
     try {
       Set<OpenstackNamedAccountCredentials> openstackCredentialsSet = accountCredentialsProvider.all.findAll {

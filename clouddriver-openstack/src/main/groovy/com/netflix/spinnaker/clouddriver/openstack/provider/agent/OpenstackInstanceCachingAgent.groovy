@@ -68,7 +68,10 @@ class OpenstackInstanceCachingAgent extends AbstractOpenstackCachingAgent {
       ConsulNode consulNode = null
       if (account?.consulConfig?.enabled) {
         try{
+          log.info(">>CONSUL>> server: $server.name")
           consulNode = ConsulProviderUtils.getHealths(account.consulConfig, server.name)
+          log.info(">>CONSUL>> healths: $consulNode.healths")
+          log.info(">>CONSUL>> healths: $consulNode.healths.toString()")
         } catch (RetrofitError e){
           log.warn(e.message)
         }
