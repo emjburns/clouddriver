@@ -29,11 +29,7 @@ import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import java.util.Arrays;
-import java.util.HashMap;
-import java.util.HashSet;
-import java.util.Map;
-import java.util.Set;
+import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
@@ -59,12 +55,15 @@ public class ClusteredAgentScheduler extends CatsModuleAware implements AgentSch
     private final Map<String, AgentExecutionAction> agents = new ConcurrentHashMap<>();
     private final Map<String, NextAttempt> activeAgents = new ConcurrentHashMap<>();
     private final NodeStatusProvider nodeStatusProvider;
+    private Integer maxConcurrentAgents;
 
     public ClusteredAgentScheduler(RedisClientDelegate redisClientDelegate,
                                    NodeIdentity nodeIdentity,
                                    AgentIntervalProvider intervalProvider,
                                    NodeStatusProvider nodeStatusProvider,
-                                   String enabledAgentPattern) {
+                                   String enabledAgentPattern,
+                                   Integer maxConcurrentAgents,
+                                   Integer agentLockAcquisitionIntervalSeconds) {
         this(
           redisClientDelegate,
           nodeIdentity,
@@ -72,7 +71,9 @@ public class ClusteredAgentScheduler extends CatsModuleAware implements AgentSch
           nodeStatusProvider,
           Executors.newSingleThreadScheduledExecutor(new NamedThreadFactory(ClusteredAgentScheduler.class.getSimpleName())),
           Executors.newCachedThreadPool(new NamedThreadFactory(AgentExecutionAction.class.getSimpleName())),
-          enabledAgentPattern
+          enabledAgentPattern,
+          maxConcurrentAgents,
+          agentLockAcquisitionIntervalSeconds
         );
     }
 
@@ -82,30 +83,45 @@ public class ClusteredAgentScheduler extends CatsModuleAware implements AgentSch
                                    NodeStatusProvider nodeStatusProvider,
                                    ScheduledExecutorService lockPollingScheduler,
                                    ExecutorService agentExecutionPool,
-                                   String enabledAgentPattern) {
+                                   String enabledAgentPattern,
+                                   Integer maxConcurrentAgents,
+                                   Integer agentLockAcquisitionIntervalSeconds) {
         this.redisClientDelegate = redisClientDelegate;
         this.nodeIdentity = nodeIdentity;
         this.intervalProvider = intervalProvider;
         this.nodeStatusProvider = nodeStatusProvider;
         this.agentExecutionPool = agentExecutionPool;
         this.enabledAgentPattern = Pattern.compile(enabledAgentPattern);
+        this.maxConcurrentAgents = maxConcurrentAgents == null ? Integer.MAX_VALUE : maxConcurrentAgents;
+        Integer lockInterval = agentLockAcquisitionIntervalSeconds == null ? 1 : agentLockAcquisitionIntervalSeconds;
 
-        lockPollingScheduler.scheduleAtFixedRate(this, 0, 1, TimeUnit.SECONDS);
+        lockPollingScheduler.scheduleAtFixedRate(this, 0, lockInterval, TimeUnit.SECONDS);
     }
 
     private Map<String, NextAttempt> acquire() {
-        Map<String, NextAttempt> acquired = new HashMap<>(agents.size());
-        Set<String> skip = new HashSet<>(activeAgents.keySet());
-        for (Map.Entry<String, AgentExecutionAction> agent : agents.entrySet()) {
-            if (!skip.contains(agent.getKey())) {
-                final String agentType = agent.getKey();
-                AgentIntervalProvider.Interval interval = intervalProvider.getInterval(agent.getValue().getAgent());
-                if (acquireRunKey(agentType, interval.getTimeout())) {
-                    acquired.put(agentType, new NextAttempt(System.currentTimeMillis(), interval.getInterval(), interval.getErrorInterval()));
-                }
-            }
-        }
-        return acquired;
+      Set<String> skip = new HashSet<>(activeAgents.keySet());
+      Integer availableAgents = maxConcurrentAgents - skip.size();
+      if (availableAgents <= 0) {
+        logger.debug("Not acquiring more locks (activeAgents: " + skip.size() + " >= maxConcurrentAgents " + maxConcurrentAgents + ")");
+        return Collections.emptyMap();
+      }
+      Map<String, NextAttempt> acquired = new HashMap<>(agents.size());
+      // Shuffle the list before grabbing so that we don't favor some agents accidentally
+      List<Map.Entry<String, AgentExecutionAction>> agentsEntrySet = new ArrayList<>(agents.entrySet());
+      Collections.shuffle(agentsEntrySet);
+      for (Map.Entry<String, AgentExecutionAction> agent : agentsEntrySet) {
+          if (!skip.contains(agent.getKey())) {
+              final String agentType = agent.getKey();
+              AgentIntervalProvider.Interval interval = intervalProvider.getInterval(agent.getValue().getAgent());
+              if (acquireRunKey(agentType, interval.getTimeout())) {
+                  acquired.put(agentType, new NextAttempt(System.currentTimeMillis(), interval.getInterval(), interval.getErrorInterval()));
+              }
+          }
+          if (acquired.keySet().size() >= availableAgents) {
+            return acquired;
+          }
+      }
+      return acquired;
     }
 
     @Override
